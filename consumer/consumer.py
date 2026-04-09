@@ -29,7 +29,7 @@ def handle_client(client_socket, address):
                     client_socket.send(b"EMPTY")
 
             else:
-                ##Producer message
+                #Producer message
                 message_queue.append(message)
                 print(f"[QUEUE SIZE] {len(message_queue)}")
                 print(f"[STORED] {message}")
