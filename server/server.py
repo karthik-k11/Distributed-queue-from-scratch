@@ -1,57 +1,38 @@
 import socket
-import threading
+import time
 
-HOST = '0.0.0.0'
+HOST = '127.0.0.1'
 PORT = 5000
 
-##In-memory queue
-message_queue = []
 
+def start_consumer():
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect((HOST, PORT))
 
-def handle_client(client_socket, address):
-    print(f"[NEW CONNECTION] {address} connected.")
+    print("Connected to Queue Server")
+    print("Fetching messages...\n")
 
     while True:
         try:
-            data = client_socket.recv(1024)
+            ##Ask server for message
+            client.send(b"GET")
 
-            if not data:
-                print(f"[DISCONNECTED] {address}")
-                break
-
+            data = client.recv(1024)
             message = data.decode('utf-8')
 
-            ##Store message in queue
-            message_queue.append(message)
+            if message == "EMPTY":
+                print("No messages in queue...")
+            else:
+                print(f"[RECEIVED] {message}")
 
-            print(f"[QUEUE SIZE] {len(message_queue)}")
-            print(f"[STORED] {message}")
+            time.sleep(2)
 
         except Exception as e:
             print(f"[ERROR] {e}")
             break
 
-    client_socket.close()
-
-
-def start_server():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((HOST, PORT))
-    server.listen(5)
-
-    print(f"[STARTED] Server listening on {HOST}:{PORT}")
-
-    while True:
-        client_socket, address = server.accept()
-
-        client_thread = threading.Thread(
-            target=handle_client,
-            args=(client_socket, address)
-        )
-
-        client_thread.start()
-        print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
+    client.close()
 
 
 if __name__ == "__main__":
-    start_server()
+    start_consumer()
