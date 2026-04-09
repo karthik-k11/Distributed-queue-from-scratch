@@ -1,8 +1,11 @@
 import socket
 import threading
 
-HOST = '0.0.0.0'   
-PORT = 5000       
+HOST = '0.0.0.0'
+PORT = 5000
+
+##In-memory queue
+message_queue = []
 
 
 def handle_client(client_socket, address):
@@ -10,7 +13,6 @@ def handle_client(client_socket, address):
 
     while True:
         try:
-            ##Receive data from client
             data = client_socket.recv(1024)
 
             if not data:
@@ -18,7 +20,12 @@ def handle_client(client_socket, address):
                 break
 
             message = data.decode('utf-8')
-            print(f"[RECEIVED] From {address}: {message}")
+
+            ##Store message in queue
+            message_queue.append(message)
+
+            print(f"[QUEUE SIZE] {len(message_queue)}")
+            print(f"[STORED] {message}")
 
         except Exception as e:
             print(f"[ERROR] {e}")
@@ -28,13 +35,10 @@ def handle_client(client_socket, address):
 
 
 def start_server():
-    ##Create TCP socket
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    ##Bind to host and port
     server.bind((HOST, PORT))
-
     server.listen(5)
+
     print(f"[STARTED] Server listening on {HOST}:{PORT}")
 
     while True:
@@ -46,7 +50,6 @@ def start_server():
         )
 
         client_thread.start()
-
         print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
 
 
