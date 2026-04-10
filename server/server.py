@@ -5,33 +5,43 @@ import os
 HOST = '0.0.0.0'
 PORT = 5000
 
-LOG_FILE = "message_log.txt"
+NUM_PARTITIONS = 3
 
-message_log = []
+##Partition logs
+partitions = [[] for _ in range(NUM_PARTITIONS)]
+
+##Track next partition (round-robin)
+current_partition = 0
 
 lock = threading.Lock()
 
 
-##Load messages from file at startup
-def load_messages():
-    global message_log
-
-    if not os.path.exists(LOG_FILE):
-        return
-
-    with open(LOG_FILE, "r") as f:
-        message_log = [line.strip() for line in f.readlines()]
-
-    print(f"[LOADED] {len(message_log)} messages from disk")
+##File names
+def get_partition_file(i):
+    return f"partition_{i}.txt"
 
 
-##Append message to file
-def persist_message(message):
-    with open(LOG_FILE, "a") as f:
+##Load partitions from disk
+def load_partitions():
+    for i in range(NUM_PARTITIONS):
+        file = get_partition_file(i)
+
+        if os.path.exists(file):
+            with open(file, "r") as f:
+                partitions[i] = [line.strip() for line in f.readlines()]
+
+    print("[LOADED PARTITIONS]")
+
+
+##Save message
+def persist_message(partition_id, message):
+    with open(get_partition_file(partition_id), "a") as f:
         f.write(message + "\n")
 
 
 def handle_client(client_socket, address):
+    global current_partition
+
     print(f"[NEW CONNECTION] {address} connected.")
 
     while True:
@@ -44,32 +54,36 @@ def handle_client(client_socket, address):
 
             message = data.decode('utf-8')
 
-            ##Consumer request
+            ##Consumer request: GET partition offset
             if message.startswith("GET"):
-                _, consumer_id, offset = message.split()
+                _, partition_id, offset = message.split()
+                partition_id = int(partition_id)
                 offset = int(offset)
 
                 lock.acquire()
 
-                if offset < len(message_log):
-                    msg = message_log[offset]
+                if offset < len(partitions[partition_id]):
+                    msg = partitions[partition_id][offset]
                     response = f"{offset}|{msg}"
                     client_socket.send(response.encode('utf-8'))
 
-                    print(f"[SEND] {msg} (offset {offset})")
+                    print(f"[SEND] P{partition_id} → {msg}")
                 else:
                     client_socket.send(b"EMPTY")
 
                 lock.release()
 
             else:
-                ##Producer message
+                ##Producer message (round-robin)
                 lock.acquire()
 
-                message_log.append(message)
-                persist_message(message)
+                partition_id = current_partition
+                partitions[partition_id].append(message)
+                persist_message(partition_id, message)
 
-                print(f"[APPENDED] {message} (offset {len(message_log)-1})")
+                print(f"[APPENDED] {message} → Partition {partition_id}")
+
+                current_partition = (current_partition + 1) % NUM_PARTITIONS
 
                 lock.release()
 
@@ -81,25 +95,23 @@ def handle_client(client_socket, address):
 
 
 def start_server():
-    load_messages()  ##Load from disk
+    load_partitions()
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((HOST, PORT))
     server.listen(5)
 
-    print(f"[STARTED] Server listening on {HOST}:{PORT}")
+    print(f"[STARTED] Server on {HOST}:{PORT}")
 
     while True:
         client_socket, address = server.accept()
 
-        client_thread = threading.Thread(
+        thread = threading.Thread(
             target=handle_client,
             args=(client_socket, address)
         )
 
-        client_thread.start()
-
-        print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
+        thread.start()
 
 
 if __name__ == "__main__":
