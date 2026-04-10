@@ -6,6 +6,9 @@ PORT = 5000
 
 message_queue = []
 
+##Create a lock
+queue_lock = threading.Lock()
+
 
 def handle_client(client_socket, address):
     print(f"[NEW CONNECTION] {address} connected.")
@@ -20,20 +23,30 @@ def handle_client(client_socket, address):
 
             message = data.decode('utf-8')
 
-            ##Check if client is consumer
+            ##Consumer request
             if message == "GET":
+
+                queue_lock.acquire()  ##LOCK START
+
                 if message_queue:
-                    msg = message_queue.pop(0)  # FIFO
+                    msg = message_queue.pop(0)
                     client_socket.send(msg.encode('utf-8'))
                     print(f"[SENT TO CONSUMER] {msg}")
                 else:
                     client_socket.send(b"EMPTY")
 
+                queue_lock.release()  ##LOCK END
+
             else:
-                ##Producer message
+                ##Producer request
+
+                queue_lock.acquire()  ##LOCK START
+
                 message_queue.append(message)
                 print(f"[QUEUE SIZE] {len(message_queue)}")
                 print(f"[STORED] {message}")
+
+                queue_lock.release()  ##LOCK END
 
         except Exception as e:
             print(f"[ERROR] {e}")
@@ -58,6 +71,7 @@ def start_server():
         )
 
         client_thread.start()
+
         print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
 
 
