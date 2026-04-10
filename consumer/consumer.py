@@ -1,15 +1,40 @@
 import socket
 import time
 import uuid
+import os
 
 HOST = '127.0.0.1'
 PORT = 5000
 
-##Unique consumer ID
-consumer_id = str(uuid.uuid4())
+##Unique consumer ID (persistent)
+CONSUMER_ID_FILE = "consumer_id.txt"
 
-##Offset tracking
-offset = 0
+##Load or create consumer ID
+if os.path.exists(CONSUMER_ID_FILE):
+    with open(CONSUMER_ID_FILE, "r") as f:
+        consumer_id = f.read().strip()
+else:
+    consumer_id = str(uuid.uuid4())
+    with open(CONSUMER_ID_FILE, "w") as f:
+        f.write(consumer_id)
+
+#Offset file
+OFFSET_DIR = "offsets"
+OFFSET_FILE = os.path.join(OFFSET_DIR, f"offset_{consumer_id}.txt")
+
+os.makedirs(OFFSET_DIR, exist_ok=True)
+
+# Load offset
+if os.path.exists(OFFSET_FILE):
+    with open(OFFSET_FILE, "r") as f:
+        offset = int(f.read().strip())
+else:
+    offset = 0
+
+
+def save_offset(offset):
+    with open(OFFSET_FILE, "w") as f:
+        f.write(str(offset))
 
 
 def start_consumer():
@@ -19,7 +44,7 @@ def start_consumer():
     client.connect((HOST, PORT))
 
     print(f"Consumer ID: {consumer_id}")
-    print("Fetching messages...\n")
+    print(f"Starting from offset: {offset}\n")
 
     while True:
         try:
@@ -36,7 +61,8 @@ def start_consumer():
 
                 print(f"[RECEIVED] {msg} (offset {msg_offset})")
 
-                offset += 1  ##Move forward
+                offset += 1
+                save_offset(offset)  ##Persist offset
 
             time.sleep(2)
 
