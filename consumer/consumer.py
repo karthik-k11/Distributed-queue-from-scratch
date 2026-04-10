@@ -4,7 +4,7 @@ import time
 HOST = '127.0.0.1'
 PORT = 5000
 
-##Choose partition manually (0, 1, 2)
+##Choose partition manually
 partition_id = int(input("Enter partition (0/1/2): "))
 
 offset = 0
