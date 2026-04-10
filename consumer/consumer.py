@@ -1,39 +1,42 @@
 import socket
 import time
+import uuid
 
 HOST = '127.0.0.1'
 PORT = 5000
 
+##Unique consumer ID
+consumer_id = str(uuid.uuid4())
+
+##Offset tracking
+offset = 0
+
 
 def start_consumer():
+    global offset
+
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((HOST, PORT))
 
-    print("Connected to Queue Server")
+    print(f"Consumer ID: {consumer_id}")
     print("Fetching messages...\n")
 
     while True:
         try:
-            client.send(b"GET")
+            request = f"GET {consumer_id} {offset}"
+            client.send(request.encode('utf-8'))
 
             data = client.recv(1024)
             message = data.decode('utf-8')
 
             if message == "EMPTY":
-                print("No messages...")
+                print("No new messages...")
             else:
-                msg_id, msg = message.split("|")
+                msg_offset, msg = message.split("|")
 
-                print(f"[PROCESSING] {msg}")
+                print(f"[RECEIVED] {msg} (offset {msg_offset})")
 
-                # Simulate work
-                time.sleep(1)
-
-                # 🔥 Send ACK
-                ack = f"ACK|{msg_id}"
-                client.send(ack.encode('utf-8'))
-
-                print(f"[ACK SENT] {msg}")
+                offset += 1  ##Move forward
 
             time.sleep(2)
 
