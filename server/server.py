@@ -1,16 +1,34 @@
 import socket
 import threading
+import os
 
 HOST = '0.0.0.0'
 PORT = 5000
 
-##Persistent message log 
+LOG_FILE = "message_log.txt"
+
 message_log = []
 
-##Track consumer offsets
-consumer_offsets = {}
-
 lock = threading.Lock()
+
+
+##Load messages from file at startup
+def load_messages():
+    global message_log
+
+    if not os.path.exists(LOG_FILE):
+        return
+
+    with open(LOG_FILE, "r") as f:
+        message_log = [line.strip() for line in f.readlines()]
+
+    print(f"[LOADED] {len(message_log)} messages from disk")
+
+
+##Append message to file
+def persist_message(message):
+    with open(LOG_FILE, "a") as f:
+        f.write(message + "\n")
 
 
 def handle_client(client_socket, address):
@@ -26,7 +44,7 @@ def handle_client(client_socket, address):
 
             message = data.decode('utf-8')
 
-            ##Consumer request: GET <consumer_id> <offset>
+            ##Consumer request
             if message.startswith("GET"):
                 _, consumer_id, offset = message.split()
                 offset = int(offset)
@@ -38,7 +56,7 @@ def handle_client(client_socket, address):
                     response = f"{offset}|{msg}"
                     client_socket.send(response.encode('utf-8'))
 
-                    print(f"[SEND] To {consumer_id} → {msg} (offset {offset})")
+                    print(f"[SEND] {msg} (offset {offset})")
                 else:
                     client_socket.send(b"EMPTY")
 
@@ -49,6 +67,8 @@ def handle_client(client_socket, address):
                 lock.acquire()
 
                 message_log.append(message)
+                persist_message(message)
+
                 print(f"[APPENDED] {message} (offset {len(message_log)-1})")
 
                 lock.release()
@@ -61,6 +81,8 @@ def handle_client(client_socket, address):
 
 
 def start_server():
+    load_messages()  ##Load from disk
+
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((HOST, PORT))
     server.listen(5)
