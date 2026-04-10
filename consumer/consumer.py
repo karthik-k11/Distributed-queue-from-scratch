@@ -1,98 +1,48 @@
 import socket
-import threading
-import uuid
+import time
 
-HOST = '0.0.0.0'
+HOST = '127.0.0.1'
 PORT = 5000
 
-message_queue = []
-in_flight = {}
 
-queue_lock = threading.Lock()
+def start_consumer():
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.connect((HOST, PORT))
 
-
-def handle_client(client_socket, address):
-    print(f"[NEW CONNECTION] {address} connected.")
+    print("Connected to Queue Server")
+    print("Fetching messages...\n")
 
     while True:
         try:
-            data = client_socket.recv(1024)
+            client.send(b"GET")
 
-            if not data:
-                print(f"[DISCONNECTED] {address}")
-                break
-
+            data = client.recv(1024)
             message = data.decode('utf-8')
 
-            ##Consumer GET request
-            if message == "GET":
-
-                queue_lock.acquire()
-
-                if message_queue:
-                    msg = message_queue.pop(0)
-                    msg_id = str(uuid.uuid4())
-
-                    in_flight[msg_id] = msg
-
-                    response = f"{msg_id}|{msg}"
-                    client_socket.send(response.encode('utf-8'))
-
-                    print(f"[SENT] {msg} (ID: {msg_id})")
-
-                else:
-                    client_socket.send(b"EMPTY")
-
-                queue_lock.release()
-
-            ##ACK from consumer
-            elif message.startswith("ACK"):
-
-                _, msg_id = message.split("|")
-
-                queue_lock.acquire()
-
-                if msg_id in in_flight:
-                    print(f"[ACK RECEIVED] {in_flight[msg_id]}")
-                    del in_flight[msg_id]
-
-                queue_lock.release()
-
+            if message == "EMPTY":
+                print("No messages...")
             else:
-                ##Producer message
-                queue_lock.acquire()
+                msg_id, msg = message.split("|")
 
-                message_queue.append(message)
-                print(f"[STORED] {message}")
+                print(f"[PROCESSING] {msg}")
 
-                queue_lock.release()
+                # Simulate work
+                time.sleep(1)
+
+                # 🔥 Send ACK
+                ack = f"ACK|{msg_id}"
+                client.send(ack.encode('utf-8'))
+
+                print(f"[ACK SENT] {msg}")
+
+            time.sleep(2)
 
         except Exception as e:
             print(f"[ERROR] {e}")
             break
 
-    client_socket.close()
-
-
-def start_server():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((HOST, PORT))
-    server.listen(5)
-
-    print(f"[STARTED] Server listening on {HOST}:{PORT}")
-
-    while True:
-        client_socket, address = server.accept()
-
-        client_thread = threading.Thread(
-            target=handle_client,
-            args=(client_socket, address)
-        )
-
-        client_thread.start()
-
-        print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
+    client.close()
 
 
 if __name__ == "__main__":
-    start_server()
+    start_consumer()
