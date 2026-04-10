@@ -1,12 +1,13 @@
 import socket
 import threading
+import uuid
 
 HOST = '0.0.0.0'
 PORT = 5000
 
 message_queue = []
+in_flight = {}
 
-##Create a lock
 queue_lock = threading.Lock()
 
 
@@ -23,30 +24,48 @@ def handle_client(client_socket, address):
 
             message = data.decode('utf-8')
 
-            ##Consumer request
+            ##Consumer GET request
             if message == "GET":
 
-                queue_lock.acquire()  ##LOCK START
+                queue_lock.acquire()
 
                 if message_queue:
                     msg = message_queue.pop(0)
-                    client_socket.send(msg.encode('utf-8'))
-                    print(f"[SENT TO CONSUMER] {msg}")
+                    msg_id = str(uuid.uuid4())
+
+                    in_flight[msg_id] = msg
+
+                    response = f"{msg_id}|{msg}"
+                    client_socket.send(response.encode('utf-8'))
+
+                    print(f"[SENT] {msg} (ID: {msg_id})")
+
                 else:
                     client_socket.send(b"EMPTY")
 
-                queue_lock.release()  ##LOCK END
+                queue_lock.release()
+
+            ##ACK from consumer
+            elif message.startswith("ACK"):
+
+                _, msg_id = message.split("|")
+
+                queue_lock.acquire()
+
+                if msg_id in in_flight:
+                    print(f"[ACK RECEIVED] {in_flight[msg_id]}")
+                    del in_flight[msg_id]
+
+                queue_lock.release()
 
             else:
-                ##Producer request
-
-                queue_lock.acquire()  ##LOCK START
+                ##Producer message
+                queue_lock.acquire()
 
                 message_queue.append(message)
-                print(f"[QUEUE SIZE] {len(message_queue)}")
                 print(f"[STORED] {message}")
 
-                queue_lock.release()  ##LOCK END
+                queue_lock.release()
 
         except Exception as e:
             print(f"[ERROR] {e}")
