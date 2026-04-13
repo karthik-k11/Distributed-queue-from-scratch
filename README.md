@@ -24,10 +24,7 @@ The system is built using low-level Python modules such as `socket`, `threading`
 ---
 
 ## Architecture
-
-### High-Level Flow
-
-Producer → Server → Partitioned Message Logs → Consumers
+![Distributed Message Queue Architecture](Distributed_Message_Queue_Architecture_Diagram.png)
 
 ### Components
 
