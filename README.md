@@ -135,7 +135,7 @@ You can run multiple consumers in different terminals.
 - Partition 1 → Order 1
 - Partition 2 → Order 2
 
-**Consumers read independently from partitions.**
+**3. Consumers read independently from partitions.**
 ---
 
 ### Design Decisions
