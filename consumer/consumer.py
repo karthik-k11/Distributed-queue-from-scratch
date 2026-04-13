@@ -1,43 +1,42 @@
 import socket
 import time
+import uuid
 
 HOST = '127.0.0.1'
 PORT = 5000
 
-##Choose partition manually
-partition_id = int(input("Enter partition (0/1/2): "))
-
-offset = 0
+group_id = input("Enter group ID: ")
+consumer_id = str(uuid.uuid4())
 
 
 def start_consumer():
-    global offset
-
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((HOST, PORT))
 
-    print(f"Reading from Partition {partition_id}\n")
+    ##JOIN group
+    join_msg = f"JOIN {group_id} {consumer_id}"
+    client.send(join_msg.encode())
+
+    print(f"Joined group {group_id} as {consumer_id}\n")
 
     while True:
         try:
-            request = f"GET {partition_id} {offset}"
-            client.send(request.encode('utf-8'))
+            get_msg = f"GET {group_id} {consumer_id}"
+            client.send(get_msg.encode())
 
             data = client.recv(1024)
-            message = data.decode('utf-8')
+            msg = data.decode()
 
-            if message == "EMPTY":
+            if msg == "EMPTY":
                 print("No messages...")
             else:
-                msg_offset, msg = message.split("|")
-                print(f"[RECEIVED] {msg} (offset {msg_offset})")
-
-                offset += 1
+                p, offset, message = msg.split("|")
+                print(f"[P{p}] {message} (offset {offset})")
 
             time.sleep(2)
 
         except Exception as e:
-            print(f"[ERROR] {e}")
+            print(e)
             break
 
     client.close()
