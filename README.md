@@ -136,6 +136,7 @@ You can run multiple consumers in different terminals.
 - Partition 2 → Order 2
 
 **3. Consumers read independently from partitions.**
+
 ---
 
 ### Design Decisions
@@ -145,6 +146,7 @@ You can run multiple consumers in different terminals.
 - File-based persistence for simplicity
 - Polling-based consumption model
 
+---
 
 ### Limitations
 - No replication or fault tolerance across nodes
@@ -152,6 +154,8 @@ You can run multiple consumers in different terminals.
 - Polling-based (no push mechanism)
 - No message retention policies
 - Single-node architecture
+
+---
 
 ### Future Improvements
 - Distributed multi-node support
@@ -161,9 +165,13 @@ You can run multiple consumers in different terminals.
 - Push-based consumption (event-driven)
 - Monitoring and metrics
 
+---
+
 ### Requirements
 - Python 3.8 or higher
 - No external dependencies (standard library only)
+
+---
 
 ### Learning Outcomes
 
