@@ -13,10 +13,11 @@ def start_consumer():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect((HOST, PORT))
 
-    ##JOIN group
+    ##JOIN
     join_msg = f"JOIN {group_id} {consumer_id}"
     client.send(join_msg.encode())
 
+    response = client.recv(1024).decode()
     print(f"Joined group {group_id} as {consumer_id}\n")
 
     while True:
@@ -25,18 +26,26 @@ def start_consumer():
             client.send(get_msg.encode())
 
             data = client.recv(1024)
-            msg = data.decode()
+            msg = data.decode().strip()
 
             if msg == "EMPTY":
                 print("No messages...")
+            elif msg in ["INVALID_GET", "NO_GROUP"]:
+                print("Error:", msg)
             else:
-                p, offset, message = msg.split("|")
+                parts = msg.split("|", 2)
+
+                if len(parts) < 3:
+                    print("Invalid message:", msg)
+                    continue
+
+                p, offset, message = parts
                 print(f"[P{p}] {message} (offset {offset})")
 
             time.sleep(2)
 
         except Exception as e:
-            print(e)
+            print("[ERROR]", e)
             break
 
     client.close()
