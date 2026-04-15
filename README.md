@@ -1,4 +1,4 @@
-# Distributed Message Queue (Kafka-like System) in Python
+# Distributed Message Queue (Kafka-like System) with Consumer Groups in Python
 
 ## Overview
 
@@ -15,8 +15,10 @@ The system is built using low-level Python modules such as `socket`, `threading`
 - In-memory and disk-based message persistence
 - FIFO message handling within partitions
 - Multiple consumers with concurrency control
+- Consumer group support with dynamic partition assignment
+- Rebalancing when new consumers join
 - Acknowledgment (ACK) mechanism for reliable delivery
-- Offset tracking per consumer
+- Offset tracking per consumer group
 - Offset persistence across restarts
 - Log-based storage (append-only)
 - Partitioning for parallel processing and scalability
@@ -40,9 +42,10 @@ The system is built using low-level Python modules such as `socket`, `threading`
 - Ensures thread-safe operations using locks
 
 #### 3. Consumer
-- Reads messages from a specific partition
-- Maintains its own offset
-- Persists offset to disk for recovery
+- Joins a consumer group using a group ID
+- Receives dynamically assigned partitions from the server
+- Reads messages using group-level offsets
+- Does not manage offsets locally (handled by server)
 - Polls server for new messages
 
 ---
@@ -94,6 +97,12 @@ Messages are written to disk and reloaded on server restart.
 ### 7. Partitioning
 Messages are distributed across multiple partitions to enable parallel consumption.
 
+### 8. Consumer Groups
+Consumers join a group and share partitions for load-balanced consumption.
+
+### 9. Rebalancing
+Partitions are reassigned dynamically when consumers join the group.
+
 ---
 
 ## How to Run
@@ -118,24 +127,33 @@ Enter messages interactively.
 cd consumer
 python consumer.py
 ```
-Enter partition number (0, 1, or 2).
+Enter a group ID (e.g., group1)
 
-You can run multiple consumers in different terminals.
+You can run multiple consumers in different terminals using the same group ID to enable load balancing.
 
 ---
 
 ### Example Flow
+
 **1. Producer sends messages:**
 - Hello
 - Order 1
 - Order 2
 
-**2. Server distributes messages:** 
+**2. Server distributes messages:**
 - Partition 0 → Hello
 - Partition 1 → Order 1
 - Partition 2 → Order 2
 
-**3. Consumers read independently from partitions.**
+**3. Consumers join a group:**
+- Consumer 1 → group1
+- Consumer 2 → group1
+
+**4. Server assigns partitions:**
+- Consumer 1 → Partition 0, 2
+- Consumer 2 → Partition 1
+
+**5. Messages are consumed without duplication within the group.**
 
 ---
 
@@ -160,7 +178,8 @@ You can run multiple consumers in different terminals.
 ### Future Improvements
 - Distributed multi-node support
 - Replication and fault tolerance
-- Consumer groups and load balancing
+- Consumer failure detection (heartbeats)
+- Automatic rebalancing on consumer disconnect
 - Message retention and compaction
 - Push-based consumption (event-driven)
 - Monitoring and metrics
